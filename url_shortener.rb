@@ -1,4 +1,5 @@
 require 'sinatra/base'
+require_relative 'lib/url_repository'
 
 class UrlShortener < Sinatra::Application
   set :public_folder, './public'
@@ -17,10 +18,7 @@ class UrlShortener < Sinatra::Application
     elsif !is_url?(url_to_shorten)
       erb :index, locals:{error: 'The text you entered is not a valid URL', url_to_shorten: url_to_shorten}
     else
-      max_id = URLS.keys.max.nil? ? 0 : URLS.keys.max
-      new_id = max_id + 1
-      URLS[new_id] = {original_url: url_to_shorten, visits: 0}
-
+      new_id = UrlRepository.new.add({original_url: url_to_shorten, visits: 0})
       redirect to("/#{new_id}?stats=true")
     end
   end
@@ -29,20 +27,21 @@ class UrlShortener < Sinatra::Application
     "None here"
   end
 
-
   get '/:id' do
     show_stats = params['stats'] == 'true'
     id = params['id'].to_i
-    original_url = URLS[id][:original_url]
-    total_visits = URLS[id][:visits]
+
+    url = UrlRepository.new.get(id)
+    original_url = url[:original_url]
+    total_visits = url[:visits]
 
     if show_stats
       shortened_url = "#{request.base_url}/#{id}"
 
       erb :show_shortened_url, locals:{shortened_url: shortened_url, original_url: original_url, total_visits: total_visits}
     else
-      previous_visits = URLS[id][:visits]
-      URLS[id] = {original_url: original_url, visits: previous_visits + 1}
+      previous_visits = url[:visits]
+      UrlRepository.new.update(id, visits: previous_visits + 1)
       redirect to(original_url)
     end
   end
